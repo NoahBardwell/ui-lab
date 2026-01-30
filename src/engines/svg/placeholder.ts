@@ -13,8 +13,11 @@ export const createSvgPlaceholder = (
   const svg = document.createElementNS(SVG_NS, 'svg')
   const gradientId = `ui-lab-gradient-${Math.random().toString(36).slice(2)}`
 
-  // viewBox defines a virtual 800x400 drawing space; the SVG scales to fit the host.
-  svg.setAttribute('viewBox', '0 0 800 400')
+  const baseWidth = 800
+  const baseHeight = 400
+
+  // viewBox defines a virtual drawing space; we update it on resize for easy layout math.
+  svg.setAttribute('viewBox', `0 0 ${baseWidth} ${baseHeight}`)
   // Preserve the design proportions while letting the SVG cover the host surface.
   svg.setAttribute('preserveAspectRatio', 'xMidYMid slice')
   svg.setAttribute('aria-hidden', 'true')
@@ -49,8 +52,8 @@ export const createSvgPlaceholder = (
   // This rect becomes the main background surface for the lab.
   background.setAttribute('x', '0')
   background.setAttribute('y', '0')
-  background.setAttribute('width', '800')
-  background.setAttribute('height', '400')
+  background.setAttribute('width', `${baseWidth}`)
+  background.setAttribute('height', `${baseHeight}`)
   // Apply the gradient defined in <defs> via a URL reference.
   background.setAttribute('fill', `url(#${gradientId})`)
 
@@ -74,10 +77,40 @@ export const createSvgPlaceholder = (
   label.setAttribute('text-transform', 'uppercase')
   label.textContent = options.label ?? 'SVG engine placeholder'
 
+  const applyLayout = (width: number, height: number) => {
+    const safeWidth = Math.max(1, width)
+    const safeHeight = Math.max(1, height)
+    const shortSide = Math.min(safeWidth, safeHeight)
+
+    svg.setAttribute('viewBox', `0 0 ${safeWidth} ${safeHeight}`)
+    background.setAttribute('width', `${safeWidth}`)
+    background.setAttribute('height', `${safeHeight}`)
+
+    ring.setAttribute('cx', `${safeWidth * 0.78}`)
+    ring.setAttribute('cy', `${safeHeight * 0.3}`)
+    ring.setAttribute('r', `${shortSide * 0.22}`)
+    ring.setAttribute('stroke-width', `${Math.max(1, shortSide * 0.004)}`)
+
+    label.setAttribute('x', `${safeWidth * 0.08}`)
+    label.setAttribute('y', `${safeHeight * 0.78}`)
+    label.setAttribute(
+      'font-size',
+      `${Math.max(16, Math.min(26, safeHeight * 0.06))}`
+    )
+  }
+
   svg.append(defs, background, ring, label)
   host.appendChild(svg)
 
+  const rect = host.getBoundingClientRect()
+  if (rect.width && rect.height) {
+    applyLayout(rect.width, rect.height)
+  }
+
   return {
+    resize(width, height) {
+      applyLayout(width, height)
+    },
     destroy() {
       svg.remove()
     },
